@@ -27,14 +27,14 @@ extern "C" {
 	/// calculate decoded lenght without =
 
     int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_data, ushort destination_size,  ushort* decoded_len );
-	int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destination );
+	int  base64_decode_rbuff( ring_buffer_t *source,  ring_buffer_t *destination );
 	
 	/// int  base64_encode(  );
-	/// int  base64_encode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destination );
+	/// int  base64_encode_rbuff( ring_buffer_t *source,  ring_buffer_t *destination );
 	
-	int  base64_encoded_buff_valid_check_rbuff( ring_buff_uchar_t *encoded_buff );
+	int  base64_encoded_buff_valid_check_rbuff( ring_buffer_t *encoded_buff );
 	int  base64_encoded_buff_valid_check( uchar* encoded_data, ushort encoded_len );
-	ushort base64_decoded_len_get( ushort encoded_bytes_len ); // decoded_len
+	ushort base64_decoded_len_max_get( ushort encoded_bytes_len ); // decoded_len_max
 	ushort base64_encode_len_get( ushort decoden_bytes_len );  // encoded_len
 
 

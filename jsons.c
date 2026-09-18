@@ -177,16 +177,20 @@ int  jsons_parameter_get( unsigned char* data, unsigned short data_len,
 //.jsons_parameter_get()
 
 
-int  jsons_brackets_get_rbuff( ring_buff_uchar_t rbuff,  unsigned short *open_index, unsigned short *close_index )
+int  jsons_brackets_get_rbuff( ring_buffer_t rbuff,  unsigned short *open_index, unsigned short *close_index )
 {
 	///! rbuff jsons_brackets_get_rbuff
 	unsigned short open_index_tmp = 0;
 	int brackets_count = -1; // error value, means need clear array
 
-	unsigned short i = 0;
-	while( i < rbuff.len && rbuff.data[i] )
+	ushort len = rbuff_length_get( &rbuff );
+	ushort i = rbuff_begin_get( &rbuff );
+	for( ushort n = 0; n < len; n++ )
 	{
-		if( rbuff.data[i] == '{' ) 
+		uchar c = rbuff.data[i];
+		if( !c ) break;
+
+		if( c == '{' )
 		{
 			if( brackets_count == -1 )
 			{
@@ -195,8 +199,7 @@ int  jsons_brackets_get_rbuff( ring_buff_uchar_t rbuff,  unsigned short *open_in
 			}
 			brackets_count++;
 		}
-
-		else if( rbuff.data[i] == '}' ) 
+		else if( c == '}' )
 		{
 			if( brackets_count > 0 )
 			{
@@ -210,8 +213,8 @@ int  jsons_brackets_get_rbuff( ring_buff_uchar_t rbuff,  unsigned short *open_in
 				}
 			}
 		}
-		
-		i++;
+
+		i = rbuff_index_next( &rbuff, i );
 	}
 	
 	return brackets_count;

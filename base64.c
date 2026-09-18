@@ -69,7 +69,7 @@ int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_d
 	{
 		return ERROR__NONE;
 	}
-	if( base64_decoded_len_get( source_len ) > destination_size)
+	if( base64_decoded_len_max_get( source_len ) > destination_size)
 	{
 		// not enought space in destination
 		return -1; 
@@ -110,7 +110,8 @@ int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_d
 				destination_data[ decoded_bytes ] |= (decoded_char >> 4) & 0x3;
 				if( !found_pad_at_next_f )
 				{
-					destination_data[ ++decoded_bytes ]    = (decoded_char & 0xF) << 4;
+					decoded_bytes++;
+					destination_data[ decoded_bytes ]    = (decoded_char & 0xF) << 4;
 				}
 			break;
 				
@@ -118,7 +119,8 @@ int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_d
 				destination_data[ decoded_bytes ] |= (decoded_char >> 2) & 0xF;
 				if( !found_pad_at_next_f )
 				{
-					destination_data[ ++decoded_bytes ]    = (decoded_char & 0x3) << 6;
+					decoded_bytes++;
+					destination_data[ decoded_bytes ]    = (decoded_char & 0x3) << 6;
 				}
 			break;
 				
@@ -126,7 +128,7 @@ int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_d
 				destination_data[ decoded_bytes ] |= decoded_char;
 				if( !found_pad_at_next_f )
 				{
-					++decoded_bytes;
+					decoded_bytes++;
 				}
 			break;
 		}
@@ -139,32 +141,32 @@ int  base64_decode( uchar* source_data, ushort source_len,  uchar* destination_d
 	//.for( ushort i = 0; i < encoded_len; i++ ) 
 	
 	
-	*decoded_len = decoded_bytes + 1;
+	*decoded_len = decoded_bytes + (  ( (decoded_len > 0) && found_pad_at_next_f ) ? 1 : 0  );
 	
 	return ERROR__NONE;
 }
 //.base64_decode()
 
-int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destination )
+int  base64_decode_rbuff( ring_buffer_t *source,  ring_buffer_t *destination )
 {
-	if( (source->len > source->size) || (destination->len > destination->size) )
+	if( source->write == source->read )
 	{
 		// Invalid input size data
 		return -1;
 	}
 	
-	if( source->len == 0 )
-	{
-		return ERROR__NONE;
-	}
-	if( (base64_decoded_len_get( source->len ) > (destination->size - destination->len)) 
+
+	ushort source_len      = rbuff_length_get( source );
+	ushort destination_len = rbuff_length_get( destination );
+
+	if( (base64_decoded_len_max_get( source_len ) > (destination->size - destination_len)) 
 	   && (source != destination) )
 	{
 		// not enought space in destination
 		return -2; 
 	}
 	
-	if( source->len & 0x3 )
+	if( source_len & 0x3 )
 	{
 		// Invalid lenght of encoded data. Lenght must divide to 4
 		return -3;
@@ -182,12 +184,12 @@ int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destina
     uchar  decoded_char;
 	ushort decoded_size = destination->size;
     ushort decoded_len  = 0;
-	ushort decoded_i    = (source != destination) ? ((destination->len > 0) ? (destination->end+1) : destination->end) : ring_buff_begin_get( destination );
+	ushort decoded_i    = (source != destination) ? ((destination_len > 0) ? (rbuff_index_shift( destination, destination->write, +1 )) : destination->write) : rbuff_begin_get( destination );
 	
 	uchar  encoded_char;
 	ushort encoded_size = source->size;
-	ushort encoded_len  = source->len;
-	ushort encoded_i    = ring_buff_begin_get( source );
+	ushort encoded_len  = source_len;
+	ushort encoded_i    = rbuff_begin_get( source );
 
 	for( ushort i = 0; i < encoded_len; i++ )
 	{
@@ -198,16 +200,17 @@ int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destina
 		switch( i & 0x3 ) 
 		{
 			case 0:
-				destination->data[ decoded_i ]    = (decoded_char << 2) & 0xFF;
+				destination->data[ decoded_i ] = (decoded_char << 2) & 0xFF;
 			break;
 				
 			case 1:
 				destination->data[ decoded_i ] |= (decoded_char >> 4) & 0x3;
 				if( !found_pad_at_next_f )
 				{
-					if( ++decoded_i >= decoded_size ) decoded_i = 0;
 					decoded_len++;
-					destination->data[ decoded_i ]    = (decoded_char & 0xF) << 4;
+					decoded_i++;
+					if( decoded_i >= decoded_size ) decoded_i = 0;			
+					destination->data[ decoded_i ] = (decoded_char & 0xF) << 4;
 				}
 			break;
 				
@@ -215,9 +218,10 @@ int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destina
 				destination->data[ decoded_i ] |= (decoded_char >> 2) & 0xF;
 				if( !found_pad_at_next_f )
 				{
-					if( ++decoded_i >= decoded_size ) decoded_i = 0;
 					decoded_len++;
-					destination->data[ decoded_i ]    = (decoded_char & 0x3) << 6;
+					decoded_i++;
+					if( decoded_i >= decoded_size ) decoded_i = 0;
+					destination->data[ decoded_i ] = (decoded_char & 0x3) << 6;
 				}
 			break;
 				
@@ -225,8 +229,9 @@ int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destina
 				destination->data[ decoded_i ] |= decoded_char;
 				if( !found_pad_at_next_f )
 				{
-					if( ++decoded_i >= decoded_size ) decoded_i = 0;
 					decoded_len++;
+					decoded_i++;
+					if( decoded_i >= decoded_size ) decoded_i = 0;					
 				}
 			break;
 		}
@@ -238,12 +243,20 @@ int  base64_decode_rbuff( ring_buff_uchar_t *source,  ring_buff_uchar_t *destina
 		
 		if( ++encoded_i >= encoded_size ) encoded_i = 0;
 	}
-	//.for( ushort i = 0; i < encoded_len; i++ )	
-	decoded_len += ( decoded_len > 0 ) ? 1 : 0;
+	//.for( ushort i = 0; i < encoded_len; i++ )
 	
-	destination->end = decoded_i;
-	destination->len = (source != destination) ? (destination->len + decoded_len) : decoded_len;
 	
+	if( found_pad_at_next_f )
+	{
+		decoded_len += (decoded_len > 0) ? 1 : 0;
+		destination->write = decoded_i;
+	}
+	else
+	{
+		destination->write = (decoded_i != 0) ? (decoded_i-1) : (decoded_size-1);
+	}
+		
+
 	return ERROR__NONE;
 }
 //.base64_decode_rbuff()
@@ -256,7 +269,7 @@ int  base64_encode( unsigned char *dst, unsigned short *dlen,  unsigned char *sr
 }
 //.base64_encode()
 
-int  base64_encode_rbuff( ring_buff_uchar_t source,  ring_buff_uchar_t *destination )
+int  base64_encode_rbuff( ring_buffer_t source,  ring_buffer_t *destination )
 {
 	return ERROR__NONE;
 }
@@ -264,14 +277,14 @@ int  base64_encode_rbuff( ring_buff_uchar_t source,  ring_buff_uchar_t *destinat
 
 
 
-int  base64_encoded_buff_valid_check_rbuff( ring_buff_uchar_t *encoded_buff )
+int  base64_encoded_buff_valid_check_rbuff( ring_buffer_t *encoded_buff )
 {
     uchar encoded_char;
     uchar pad_counter = 0;
 	
 	ushort encoded_size = encoded_buff->size;
-	ushort encoded_len  = encoded_buff->len;
-	ushort encoded_i    = ring_buff_begin_get( encoded_buff );
+	ushort encoded_len  = rbuff_length_get( encoded_buff );
+	ushort encoded_i    = rbuff_begin_get( encoded_buff );
 	for( ushort i = 0; i < encoded_len; i++ )
 	{
 		encoded_char = encoded_buff->data[ encoded_i ];
@@ -298,6 +311,7 @@ int  base64_encoded_buff_valid_check_rbuff( ring_buff_uchar_t *encoded_buff )
 
 		if( ++encoded_i >= encoded_size ) encoded_i = 0;
 	}
+
 
 	return ERROR__NONE;
 }
@@ -335,17 +349,18 @@ int  base64_encoded_buff_valid_check( uchar* encoded_data, ushort encoded_len )
 }
 //.base64_encoded_buff_valid_check()
 
-ushort base64_decoded_len_get( ushort encoded_bytes_len ) // decoded_len
+ushort base64_decoded_len_max_get( ushort encoded_bytes_len ) // decoded_len
 {
 	// 6 to 8 bits
 	// v1
 	// ulong  decoded_len = 0;
-	// decoded_len = (encoded_bytes_len * 3) / 4;
+	// decoded_len = (encoded_bytes_len_max * 3) / 4;
 
 	// v2
-	ushort decoded_len = (encoded_bytes_len / 4) * 3;
+	ushort decoded_len_max = (encoded_bytes_len / 4) * 3;
+	/// delete empty last bytes and rename to decoded_len
 
-	return decoded_len;
+	return decoded_len_max;
 }
 
 ushort base64_encode_len_get( ushort decoden_bytes_len ) // encoded_len

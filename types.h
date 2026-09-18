@@ -10,12 +10,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-
-	typedef unsigned char 	uchar;
-	typedef unsigned short 	ushort;
-	typedef unsigned long 	ulong;
+	
+	
+	
+	#include <stdbool.h>
+	
+	
 	
 	#ifndef TRUE
 		#define TRUE 	1
@@ -27,117 +27,156 @@ extern "C" {
 		#define NULL 	0
 	#endif
 	
+	typedef unsigned char 	uchar;
+	typedef unsigned short 	ushort;
+	typedef unsigned long 	ulong;
 	
-	
-	typedef struct {
-		unsigned char* data;
-		unsigned short size;
-		unsigned short len;
-	} line_buff_uchar_t;
+
 	
 	typedef struct {
+		ushort len;
+		ushort size;
+		uchar* data;
+	} bytes_buffer_t;
+
+	
+	typedef struct {
+		ushort  len;
+		ushort  size;
+		ushort* data;
+	} ushort_buffer_t;
+
+	typedef struct {
+		ushort len;
+		short  size;
 		short* data;
-		unsigned short size;
-		unsigned short len;
-	} line_buff_short_t;
-
-	typedef struct {
-		unsigned char* data;
-		unsigned short size;
-		unsigned short end; /// end to write, begin to read
-		unsigned short len;
-	} ring_buff_uchar_t;
-
+	} short_buffer_t;
 	
 	typedef struct {
-		unsigned short x;
-		unsigned short y;
+		ushort len;
+		uchar* data;
+	} string_buffer_t;
+
+	typedef struct {
+		ushort x;
+		ushort y;
 	} pos_px_t;
 	
 	typedef struct {
-		unsigned short w;
-		unsigned short h;
+		ushort w;
+		ushort h;
 	} rect_px_t;
 	
 	typedef struct {
-		unsigned short columns;
-		unsigned short rows;
+		ushort columns;
+		ushort rows;
 	} table_t;
 	
 	typedef struct {
-		unsigned short column;
-		unsigned short row;
+		ushort column;
+		ushort row;
 	} cell_t;
 
-	
 	typedef struct { // 1bit = 1pixel
-		const unsigned short width;
-		const unsigned short height;
-		const unsigned char* data;
-		const unsigned short size;
+		const ushort width;
+		const ushort height;
+		const uchar* data;
+		const ushort size;
 	} image_mono_const_uchar_t;
 	
 	
 	
 	// Array operations
-	void array_uchar_clear( unsigned char null_byte, unsigned char* arr, unsigned short *arr_len );
-	void array_uchar_fill( unsigned char fill_char, unsigned char* arr, unsigned short arr_len );
-	void array_uchar_put( unsigned short put_arr_ind, unsigned char* put_arr, unsigned short put_arr_len, unsigned short arr_ind, unsigned char* arr, unsigned short *arr_len, unsigned short arr_size );
-	void array_uchar_shift( short shift, unsigned short arr_ind, unsigned char null_byte, unsigned char* arr, unsigned short *arr_len, unsigned short arr_size ); // shift < 0 - left shift
-	void array_uchar_rotare( short rotate, unsigned char* arr, unsigned short arr_len ); // rotate < 0 - left rotate
+	void array_uchar_clear( uchar null_byte, uchar* arr, ushort *arr_len );
+	void array_uchar_fill( uchar fill_char, uchar* arr, ushort arr_len );
+	void array_uchar_put( ushort put_arr_ind, uchar* put_arr, ushort put_arr_len, ushort arr_ind, uchar* arr, ushort *arr_len, ushort arr_size );
+	void array_uchar_shift( short shift, ushort arr_ind, uchar null_byte, uchar* arr, ushort *arr_len, ushort arr_size ); // shift < 0 - left shift
+	void array_uchar_rotare( short rotate, uchar* arr, ushort arr_len ); // rotate < 0 - left rotate
 	/// array move and copy bytes
-
+	
+	
 	// Ring buffer operations
-	int  ring_buff_add( ring_buff_uchar_t src_buff, ring_buff_uchar_t *dest_buff );
-	int  ring_buff_copy( ring_buff_uchar_t src_buff, ring_buff_uchar_t *dest_buff );
-	int  ring_buff_move( ring_buff_uchar_t *src_buff, ring_buff_uchar_t *dest_buff );
-	int  ring_buff_read_set( ushort read_ind, ring_buff_uchar_t *ring_buff );
-	//void ring_buff_allign_left( ring_buff_uchar_t *ring_buff );
-	//int  ring_to_line_buff( ring_buff_uchar_t *ring_buff, line_buff_uchar_t *line_buff );
-	//
-	int   ring_buff_add_string( uchar* string_, ushort string_len, ring_buff_uchar_t *ring_buff );
-	int   ring_buff_add_short( short number, ring_buff_uchar_t *ring_buff );
-	int   ring_buff_add_char( uchar char_, ring_buff_uchar_t *ring_buff );
-	uchar ring_buff_found_char( uchar char_, ushort *found_index, ring_buff_uchar_t *ring_buff ); // TRUE or FALSE
-	uchar ring_buff_found_string( uchar* string_, ushort string_len, ushort *found_index, ring_buff_uchar_t *ring_buff ); // TRUE or FALSE
-	//
-	int    ring_buff_end_set( ring_buff_uchar_t *ring_buff, ushort end_ind );
-	ushort ring_buff_begin_get( ring_buff_uchar_t *ring_buff );
-	ushort ring_buff_index_shift( ushort index, int shift, ushort size ); // shifted index
-	void   ring_buff_reset( ring_buff_uchar_t *ring_buff );
-	void   ring_buff_init( ring_buff_uchar_t *ring_buff, uchar null_byte );
+	typedef struct {
+		ushort read;
+		ushort write;
+		ushort size;
+		uchar* data;	
+	} ring_buffer_t;
 
+	void 	rbuff_init(  ring_buffer_t *rbuff, uchar null_byte );
+	void 	rbuff_reset( ring_buffer_t *rbuff );
+	static inline ushort rbuff_begin_get( ring_buffer_t *rbuff ) { return (rbuff->read == rbuff->write) ? rbuff->write : ((rbuff->read + 1) % rbuff->size); };
+	static inline ushort rbuff_index_next(  ring_buffer_t *rbuff, ushort index ) { return (index + 1) % rbuff->size; };
+	static inline ushort rbuff_index_prev(  ring_buffer_t *rbuff, ushort index ) { return (index == 0) ? (rbuff->size - 1) : (index - 1); };
+	static inline ushort rbuff_index_read_next(  ring_buffer_t *rbuff ) { return (rbuff->read + 1) % rbuff->size; };
+	static inline ushort rbuff_index_read_prev(  ring_buffer_t *rbuff ) { return (rbuff->read == 0) ? (rbuff->size - 1) : (rbuff->read - 1); };
+	static inline ushort rbuff_index_shift( ring_buffer_t *rbuff, ushort index, ushort shift ) { return ((shift) == 0 ? (index) : ((index) + (shift)) % (rbuff)->size); };
+	static inline ushort rbuff_length_get( ring_buffer_t *rbuff ) { return (rbuff->write >= rbuff->read) ? (rbuff->write - rbuff->read) : (rbuff->write + rbuff->size - rbuff->read); };
+	static inline ushort rbuff_index_length_get( ring_buffer_t *rbuff, ushort begin, ushort end ) { return (end >= begin) ? (end - begin) : (end + (rbuff)->size - begin); };
+	
+	static inline bool rbuff_read_next(uchar *restrict return_char, ring_buffer_t *restrict rbuff) {
+	    if (rbuff->read == rbuff->write) return false;	
+	    ushort next = rbuff->read + 1;
+	    rbuff->read = (next >= rbuff->size) ? 0 : next;	
+	    *return_char = rbuff->data[rbuff->read];
+	    return true;
+	}
+	#define rbuff_read_next_(rbuff, ret)             \
+    do {                                             \
+        if ((rbuff)->read == (rbuff)->write) break;  \
+        (rbuff)->read = ((rbuff)->read + 1) & ((rbuff)->size - 1); \
+        *(ret) = (rbuff)->data[(rbuff)->read];       \
+    } while (0)
+	
+
+	void 	rbuff_copy( ring_buffer_t* dest, ring_buffer_t* src, ushort begin, ushort end );
+	
+	bool 	rbuff_to_ushort( ring_buffer_t *rbuff,  ushort *ret_number );
+	bool 	rbuff_to_ushort_hex( ring_buffer_t *rbuff,  ushort *ret_number );
+	
+	bool 	rbuff_append_char( uchar wr_char, ring_buffer_t *rbuff );
+	bool 	rbuff_append_ushort( ushort wr_ushort, ring_buffer_t *rbuff );
+	bool 	rbuff_append_text( const uchar *wr_text, ring_buffer_t *rbuff );	
+	bool 	rbuff_append_byte( uchar wr_byte, ring_buffer_t *rbuff );
+	bool 	rbuff_append_bytes( uchar *wr_bytes, ushort wr_len, ring_buffer_t *rbuff );
+	bool 	rbuff_append_rbuff( ring_buffer_t *src_rbuff, ring_buffer_t *dst_rbuff );
+	bool 	rbuff_append_str( string_buffer_t wr_str, ring_buffer_t *rbuff );
+	bool 	rbuff_append_number_str( short wr_number, ring_buffer_t *rbuff );	
+	
+	bool 	rbuff_compare_str( string_buffer_t str, ring_buffer_t *rbuff );
+	
+	
 	// Float operations
-	float array_to_float( unsigned short arr_ind, unsigned char* arr );
-	float array_to_float_rev( unsigned short arr_ind, unsigned char* arr );
-	void float_to_array( float number, unsigned short arr_ind, unsigned char* arr );
-	void float_to_array_rev( float number, unsigned short arr_ind, unsigned char* arr );
-	unsigned char is_nan_float( float *value );
-	long float_to_long( float value );
+	float  array_to_float( ushort arr_ind, uchar* arr );
+	float  array_to_float_rev( ushort arr_ind, uchar* arr );
+	void   float_to_array( float number, ushort arr_ind, uchar* arr );
+	void   float_to_array_rev( float number, ushort arr_ind, uchar* arr );
+	uchar  is_nan_float( float *value );
+	long   float_to_long( float value );
 
 	// Ulong operations
-	unsigned long array_to_ulong( unsigned short arr_ind, unsigned char* arr );
-	unsigned long array_to_ulong_rev( unsigned short arr_ind, unsigned char* arr );
-	void ulong_to_array( unsigned long number, unsigned short arr_ind, unsigned char* arr );
-	void ulong_to_array_rev( unsigned long number, unsigned short arr_ind, unsigned char* arr );
+	ulong  array_to_ulong( ushort arr_ind, uchar* arr );
+	ulong  array_to_ulong_rev( ushort arr_ind, uchar* arr );
+	void   ulong_to_array( ulong number, ushort arr_ind, uchar* arr );
+	void   ulong_to_array_rev( ulong number, ushort arr_ind, uchar* arr );
 
 	// Long operations
-	long array_to_long( unsigned short arr_ind, unsigned char* arr );
-	long array_to_long_rev( unsigned short arr_ind, unsigned char* arr );
-	void long_to_array( long number, unsigned short arr_ind, unsigned char* arr );
-	void long_to_array_rev( long number, unsigned short arr_ind, unsigned char* arr );
+	long   array_to_long( ushort arr_ind, uchar* arr );
+	long   array_to_long_rev( ushort arr_ind, uchar* arr );
+	void   long_to_array( long number, ushort arr_ind, uchar* arr );
+	void   long_to_array_rev( long number, ushort arr_ind, uchar* arr );
 
 	// Ushort operations
-	unsigned short array_to_ushort( unsigned short arr_ind, unsigned char* arr );
-	unsigned short array_to_ushort_rev( unsigned short arr_ind, unsigned char* arr );
-	void ushort_to_array( unsigned short number, unsigned short arr_ind, unsigned char* arr );
-	void ushort_to_array_rev( unsigned short number, unsigned short arr_ind, unsigned char* arr );
+	ushort array_to_ushort( ushort arr_ind, uchar* arr );
+	ushort array_to_ushort_rev( ushort arr_ind, uchar* arr );
+	void   ushort_to_array( ushort number, ushort arr_ind, uchar* arr );
+	void   ushort_to_array_rev( ushort number, ushort arr_ind, uchar* arr );
 
 	// Short operations
-	short array_to_short( unsigned short arr_ind, unsigned char* arr );
-	short array_to_short_rev( unsigned short arr_ind, unsigned char* arr );
-	void short_to_array( short number, unsigned short arr_ind, unsigned char* arr );
-	void short_to_array_rev( short number, unsigned short arr_ind, unsigned char* arr );
+	short  array_to_short( ushort arr_ind, uchar* arr );
+	short  array_to_short_rev( ushort arr_ind, uchar* arr );
+	void   short_to_array( short number, ushort arr_ind, uchar* arr );
+	void   short_to_array_rev( short number, ushort arr_ind, uchar* arr );
 
 	// Double operations
 	/// ToDo

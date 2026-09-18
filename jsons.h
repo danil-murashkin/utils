@@ -30,7 +30,7 @@ extern "C" {
 	static const unsigned char jsons_skip_symbols_len = sizeof(jsons_skip_symbols);
 
 
-	int  jsons_brackets_get_rbuff( ring_buff_uchar_t rbuff,  unsigned short *open_index, unsigned short *close_index );
+	int  jsons_brackets_get_rbuff( ring_buffer_t rbuff,  unsigned short *open_index, unsigned short *close_index );
 	int  jsons_brackets_get( unsigned char* data, unsigned short data_len,  unsigned short *open_index, unsigned short *close_index );
 
 	int  jsons_parameter_get( unsigned char* data, unsigned short data_len,

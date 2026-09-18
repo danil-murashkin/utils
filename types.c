@@ -6,11 +6,9 @@
 
 #include "types.h"
 
-#include "stdlib.h" ///
-
+#include <stdlib.h>
 #include "functions.h"
 #include "maths.h"
-
 #include "strings.h"
 
 
@@ -19,282 +17,215 @@
 
 //=============================================================================
 // Ring buffer operations
-// Ring buffer operations
-int  ring_buff_add( ring_buff_uchar_t src_buff, ring_buff_uchar_t *dest_buff )
+
+void rbuff_init( ring_buffer_t *rbuff, uchar null_byte )
 {
-	return 0;
+	if( rbuff->size < 1 ) return;
+	for( unsigned short i = 0; i < rbuff->size; i++ ) rbuff->data[i] = null_byte;
+	rbuff->read  = rbuff->size-1;
+	rbuff->write = rbuff->size-1;
 }
 
-int  ring_buff_copy( ring_buff_uchar_t src_buff, ring_buff_uchar_t *dest_buff )
+void rbuff_reset( ring_buffer_t *rbuff )
 {
-	return 0;
-}
-
-int  ring_buff_move( ring_buff_uchar_t *src_buff, ring_buff_uchar_t *dest_buff )
-{
-	return 0;
+	if( rbuff->size < 1 ) return;
+	rbuff->read  = rbuff->size-1;
+	rbuff->write = rbuff->size-1;
 }
 
 
-int  ring_buff_read_set( ushort read_ind, ring_buff_uchar_t *ring_buff )
-{
 
-	/*if( (ring_buff->end + ring_buff->len) <= ring_buff->size )
+int rbuff_copy_segment(ring_buffer_t* dest, ring_buffer_t* src, ushort begin, ushort end) 
+{
+    dest->read  = dest->size - 1;
+    dest->write = dest->size - 1;
+    
+    ushort index = begin;
+    while( index != rbuff_index_next(src, end) ) 
+    {
+        dest->write = rbuff_index_next( dest, dest->write );
+        if (dest->write == dest->read) break;
+        dest->data[dest->write] = src->data[ index ];
+        index = rbuff_index_next( src, index );
+    }
+    
+    return 0;
+}
+
+
+
+bool rbuff_compare_str( string_buffer_t str, ring_buffer_t *rbuff )
+{
+	if( str.len == 0 ) return false;
+	if( rbuff->read == rbuff->write ) return false;
+
+	ushort rbuff_size = rbuff->size;
+	ushort rbuff_ind  = rbuff_begin_get( rbuff );
+	for( ushort i = 0; i < str.len; i++ )
 	{
-		if( read_ind > ring_buff->end ) error
+		if( str.data[ i ] != rbuff->data[ rbuff_ind ] )
+		{
+			return false;
+		}
+		if( rbuff_ind++ >= rbuff_size ) rbuff_ind = 0;
+	}
+	
+	return true;
+}
 
+
+
+bool rbuff_to_ushort( ring_buffer_t *rbuff,  ushort *ret_number )
+{
+	ushort size = rbuff->size; ushort len = rbuff_length_get( rbuff ); ushort write = rbuff->write; ushort read = rbuff->read; 
+	ushort number = 0; ushort digit = 1; ushort numeral = 0; uchar tmp_uchar; const ushort digit_max = 10000; //ushort max value 65535
+	while( write != read ) {
+		tmp_uchar = rbuff->data[ write ];
+		if( (tmp_uchar > 47) && (tmp_uchar < 58) ) { //ASCII codes for 0..9, 48 == '0' && 57 == '9'
+			numeral = tmp_uchar - 48;
+			if( (digit == digit_max) && (numeral > 6) && (number > 5535) ) return false;
+			number += numeral * digit;
+			if( digit == digit_max ) break; else digit *= 10;
+		}
+		else if( digit != 1 ) return false;		
+		write = (write == 0) ? size : (write - 1);
+	}
+	*ret_number = number;	
+	return true;
+}
+
+bool rbuff_to_ushort_hex( ring_buffer_t *rbuff,  ushort *ret_number )
+{
+	ushort size = rbuff->size; ushort len = rbuff_length_get( rbuff ); ushort write = rbuff->write; ushort read = rbuff->read; 
+	//if(  (rbuff->data[ read ] == '0') && (rbuff->data[ ((read + 1) >= size) ? 0 : (read + 1) ] == 'x')  ){ read = ((read + 2) >= size) ? (read + 2 - size) : (read + 2); } // "0x" tolerance
+	unsigned short number = 0x00; uchar tmp_uchar; unsigned char digit_hex = 0; // 1 digit_hex = 4bits
+	while( (write != read) && (digit_hex < 4) ) {
+		tmp_uchar = rbuff->data[ write ];
+		if( (tmp_uchar >= '0') && (tmp_uchar <= '9') ){ tmp_uchar = tmp_uchar - '0'; }
+	    else if( (tmp_uchar >= 'A') && (tmp_uchar <= 'F') ){ tmp_uchar = tmp_uchar - 'A' + 0x0A; } else if( (tmp_uchar >= 'a') && (tmp_uchar <= 'f') ){ tmp_uchar = tmp_uchar - 'a' + 0x0A; }   // 30 - 0, 39 - 9, 41 - A, 46 - F
+		else if( (tmp_uchar == 'x') && (rbuff->data[ (write == 0) ? size : (write - 1) ] == '0') ){ break; } else return false;
+		number += tmp_uchar << 4*digit_hex;
+		digit_hex++;
+		write = (write == 0) ? size : (write - 1);
+	}
+	*ret_number = number;
+	return true;
+}
+
+
+
+bool rbuff_append_char( uchar wr_char, ring_buffer_t *rbuff )
+{
+	rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+	rbuff->data[ rbuff->write ] = wr_char;
+
+	return true;
+}
+
+bool rbuff_append_text( const uchar *wr_text, ring_buffer_t *rbuff )
+{
+	if( wr_text[0] ) 
+	{ 
+		ushort text_len = 0; 
+		while(  wr_text[ text_len ]  ) 
+		{
+			rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+			rbuff->data[ rbuff->write ] = wr_text[ text_len ];
+
+			text_len++; 
+		}
+	}
+	
+	return true;
+}
+	
+bool rbuff_append_ushort( ushort wr_ushort, ring_buffer_t *rbuff )
+{
+	rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+	rbuff->data[ rbuff->write ] = ( wr_ushort & 0xFF );
+	rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+	rbuff->data[ rbuff->write ] = ( (wr_ushort >> 8) & 0xFF );
+
+	return true;
+}
+
+bool rbuff_append_byte( uchar wr_byte, ring_buffer_t *rbuff )
+{
+	rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+	rbuff->data[ rbuff->write ] = wr_byte;
+
+	return true;
+}
+	
+bool rbuff_append_bytes( uchar *wr_bytes, ushort wr_len, ring_buffer_t *rbuff )
+{
+	ushort wrote_len = 0; 
+	while(  wrote_len < wr_len  ) 
+	{
+		rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+		rbuff->data[ rbuff->write ] = wr_bytes[ wrote_len ];
+
+		wrote_len++;
 	}
 
-
-	if( ring_buff->end > ring_buff->len ) begin = ring_buff->size - ring_buff->end - ring_buff->len;
-
-
-
-	rbuffer->len = ((rbuffer->end > packet.buff.end) ? 0 : rbuffer->size) + rbuffer->end - packet.buff.end;*/
-	return ERROR__NONE;
+	return true;
 }
 
-
-
-int   ring_buff_add_string( uchar* string_, ushort string_len, ring_buff_uchar_t *ring_buff ) // ERROR CODE
+bool rbuff_append_rbuff( ring_buffer_t *src_rbuff, ring_buffer_t *dst_rbuff )
 {
-	ushort shift;
-	string_insert_string( string_, string_len, ring_buff->end+1, ring_buff->data, &shift, ring_buff->size );
-	ring_buff_end_set( ring_buff, ring_buff->end + string_len );
-	return ERROR__NONE;
-}
-
-int   ring_buff_add_short( short number, ring_buff_uchar_t *ring_buff ) // ERROR CODE
-{
-	ushort shift;
-	short_to_string( number, ring_buff->data + ring_buff->end+1, &shift );
-	ring_buff_end_set( ring_buff, ring_buff->end + shift );
-	return ERROR__NONE;
-}
-
-int   ring_buff_add_char( uchar char_, ring_buff_uchar_t *ring_buff ) // ERROR CODE
-{
-	ushort shift;
-	string_insert_char( char_, ring_buff->end+1, ring_buff->data, &shift, ring_buff->size );
-	ring_buff_end_set( ring_buff, ring_buff->end + 1 );
-	return ERROR__NONE;
-}
-
-uchar ring_buff_found_char( uchar char_, ushort *found_index, ring_buff_uchar_t *ring_buff ) // TRUE or FALSE
-{
-	return string_found_char( found_index, char_, ring_buff->data, ring_buff->len ); 
-} 
-
-uchar ring_buff_found_string( uchar* string_, ushort string_len, ushort *found_index, ring_buff_uchar_t *ring_buff ) // TRUE or FALSE
-{
-	return string_found_substring( found_index, string_, string_len, ring_buff->data, ring_buff->len );
-}
-
-
-
-int   ring_buff_end_set( ring_buff_uchar_t *ring_buff, ushort end_ind )
-{
-	if( end_ind > (ring_buff->size-1) )
+	ushort write_len 	= rbuff_length_get( src_rbuff );
+	if( write_len == 0 ) return true;
+	if( write_len >= dst_rbuff->size ) return false;	
+	ushort dst_free_len = dst_rbuff->size - rbuff_length_get( dst_rbuff );
+	if( write_len >= dst_free_len ) return false;
+	
+	ushort src_read = src_rbuff->read;
+	ushort wrote_len = 0; 
+	while(  wrote_len < write_len  ) 
 	{
-		return -2;
-	}
-
-	ushort shift = end_ind + ((end_ind < ring_buff->end) ? ring_buff->size : 0) - ring_buff->end  + ((ring_buff->len == 0) ? 1 : 0);
+		dst_rbuff->write = ( (dst_rbuff->write + 1) >= dst_rbuff->size ) ? 0 : dst_rbuff->write + 1; 
+		src_read = ( (src_read + 1) >= src_rbuff->size ) ? 0 : src_read + 1; 
+		dst_rbuff->data[ dst_rbuff->write ] = src_rbuff->data[ src_read ];
 		
-	if( (shift + ring_buff->len) > ring_buff->size )
-	{
-		return -1; // overflow
+		wrote_len++;
 	}
-
-	ring_buff->len += shift;
-	ring_buff->end = end_ind;
-
-	return ERROR__NONE;
+	
+	return true;
 }
-//.ring_buff_end_set()
 
-ushort ring_buff_begin_get( ring_buff_uchar_t *ring_buff )
+bool rbuff_append_str( string_buffer_t wr_str, ring_buffer_t *rbuff )
 {
-	if( ring_buff->len == 0 )
+	ushort wrote_len = 0; 
+	while(  wrote_len < wr_str.len  ) 
 	{
-		return ring_buff->end;
+		rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+		rbuff->data[ rbuff->write ] = wr_str.data[ wrote_len ];
+
+		wrote_len++;
 	}
 	
-	if( ring_buff->end < (ring_buff->len-1) )
-	{
-		return ring_buff->size +  ring_buff->end - (ring_buff->len-1);
-	}
-	else
-	{
-		return ring_buff->end - (ring_buff->len-1);
-	}
+	return true;
 }
-//.ring_buff_begin_get()
 
-ushort ring_buff_index_shift( ushort index, int shift, ushort size ) // shifted index
+bool rbuff_append_number_str( short wr_number, ring_buffer_t *rbuff )
 {
-	int shift_ = shift % size;
-	ushort ret_index = index;
+	static uchar  tmp_buff_data[6];
+	ushort 		  tmp_buff_len;
+	tmp_buff_len = 0;
+	for( uchar i = 0; i < 6; i++ ) tmp_buff_data[i] = 0;
+	short_to_string( wr_number, tmp_buff_data, &tmp_buff_len );
 	
-
-	if( shift_ < 0 )
+	ushort wrote_len = 0; 
+	while(  wrote_len < tmp_buff_len  ) 
 	{
-		ret_index = index + (((index + shift_) < 0) ? size : 0) + shift_;
-	}
-	else
-	{
-		ret_index = index + shift_ - (((index + shift_) >= size) ? size : 0);	
+		rbuff->write = ( (rbuff->write + 1) >= rbuff->size ) ? 0 : rbuff->write + 1; 
+		rbuff->data[ rbuff->write ] = tmp_buff_data[ wrote_len ];
+		
+		wrote_len++;
 	}
 
-	return ret_index;
+	return true;
 }
-//.ring_buff_index_shift()
-
-
-
-void   ring_buff_init( ring_buff_uchar_t *ring_buff, uchar null_byte )
-{
-	for( unsigned short i = 0; i < ring_buff->size; i++ ) ring_buff->data[i] = null_byte;
-	ring_buff->len = 0;
-	ring_buff->end = 0;
-}
-
-void   ring_buff_reset( ring_buff_uchar_t *ring_buff )
-{
-	ring_buff->len = 0;
-	ring_buff->end = 0;
-}
-
-
-
-/*int cyclic_array_add_array( cyclic_array_uchar_t *cyclic_array, uchar* array, ushort array_len )
-{
-	if( (cyclic_array->begin >= cyclic_array->size) || (cyclic_array->end >= cyclic_array->size) )
-	{
-		/// error wrong cyclic_array pointers to end or begin of data in array
-		return -4;
-	}
-
-	ushort cyclic_array_lenght = (  cyclic_array->end + ((cyclic_array->begin <= cyclic_array->end) ? 0 : cyclic_array->size)  ) - cyclic_array->begin;
-	if( (cyclic_array_lenght + array_len) > cyclic_array->size )
-	{
-		/// error add oversize array
-		return -3;
-	}
-
-
-	ushort cyclic_array_new_end = cyclic_array->end + array_len;
-	if( cyclic_array_new_end >= cyclic_array->size ) cyclic_array_new_end -= cyclic_array->size;
-
-	if( (cyclic_array->end + array_len) < cyclic_array->size )
-	{		
-		for( ushort i = 0; i < array_len; i++ )
-		{
-			cyclic_array->data[ cyclic_array->end + i ] = array[i];
-		}
-		cyclic_array->end = cyclic_array->end + array_len;
-	}
-	else
-	{
-		for( ushort i = 0; i < (cyclic_array->size - cyclic_array->end); i++ )
-		{
-			cyclic_array->data[ cyclic_array->end + i ] = array[i];
-		}
-		for( ushort i = (cyclic_array->size - cyclic_array->end); i < array_len; i++ )
-		{
-			cyclic_array->data[ i - (cyclic_array->size - cyclic_array->end) ] = array[i];
-		}
-		cyclic_array->end = cyclic_array->end - cyclic_array->size;
-	}
-	//.if( (cyclic_array->end + array_len) < cyclic_array->size )
-
-	
-	return ERROR__NONE;
-}
-//.cyclic_array_add_array()
-
-int  cyclic_array_copy_array( cyclic_array_uchar_t cyclic_array,  ushort begin_offset, ushort copy_lenght,  uchar* destination_array, ushort destination_array_size )
-{
-	if( copy_lenght > destination_array_size )
-	{
-		/// error over write to array
-		return -3;
-	}
-
-	if( (cyclic_array.begin >= cyclic_array.size) || (cyclic_array.end >= cyclic_array.size) )
-	{
-		/// error wrong cyclic_array pointers to end or begin of data in array
-		return -2;
-	}
-	
-	ushort cyclic_array_lenght = (  cyclic_array.end + ((cyclic_array.begin <= cyclic_array.end) ? 0 : cyclic_array.size)  ) - cyclic_array.begin;
-	if( (begin_offset + copy_lenght) < cyclic_array_lenght )
-	{
-		/// error over shift + copy_lenght
-		return -1;
-	}
-
-
-	ushort begin_to_size_len = cyclic_array.size - cyclic_array.begin;
-	ushort copy_begin =	(begin_offset < begin_to_size_len) ? (cyclic_array.begin + begin_offset) : (begin_offset - begin_to_size_len);
-	ushort copy_end   = ((begin_offset + copy_lenght) < begin_to_size_len) ? (cyclic_array.begin + (begin_offset + copy_lenght)) : ((begin_offset + copy_lenght) - begin_to_size_len);
-
-	if( copy_begin <= copy_end )
-	{		
-		for( ushort i = 0; i < copy_lenght; i++ )
-		{
-			destination_array[i] = cyclic_array.data[ copy_begin + i ];
-		}
-		for( ushort i = copy_lenght; i < destination_array_size; i++ )
-		{
-			destination_array[i] = 0x00;
-		}		
-	}
-	else
-	{
-		for( ushort i = 0; i < begin_to_size_len; i++ )
-		{
-			destination_array[i] = cyclic_array.data[ copy_begin + i ];
-		}
-		for( ushort i = 0; i < copy_end; i++ )
-		{
-			destination_array[ i + begin_to_size_len ] = cyclic_array.data[i];
-		}
-		for( ushort i = copy_end + begin_to_size_len; i < destination_array_size; i++ )
-		{
-			destination_array[i] = 0x00;
-		}		
-	}
-	//.if( copy_end <= copy_begin )
-	
-	
-	return ERROR__NONE;
-}
-//.cyclic_array_copy_array()
-
-int  cyclic_array_begin_shift( cyclic_array_uchar_t *cyclic_array, ushort begin_shift )
-{
-	if( begin_shift == 0 ) return ERROR__NONE;
-	
-	if( (cyclic_array->begin >= cyclic_array->size) || (cyclic_array->end >= cyclic_array->size) )
-	{
-		/// error wrong cyclic_array pointers to end or begin of data in array
-		return -3;
-	}
-
-	ushort cyclic_array_lenght = (  cyclic_array->end + ((cyclic_array->begin <= cyclic_array->end) ? 0 : cyclic_array->size)  ) - cyclic_array->begin;
-	if( begin_shift < cyclic_array_lenght )
-	{
-		/// error over begin_shift
-		return -2;
-	}
-	
-	ushort begin_to_size_len = cyclic_array->size - cyclic_array->begin;
-	cyclic_array->begin = (begin_shift < begin_to_size_len) ? (cyclic_array->begin + begin_shift) : (begin_shift - begin_to_size_len);
-
-	return ERROR__NONE;
-}
-//.cyclic_array_begin_shift()*/
 
 //.Ring buffer operations
 //=============================================================================

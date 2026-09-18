@@ -6,7 +6,11 @@
 
 #include "delaynop.h"
 
-
+#if defined(__ICCARM__)
+	#define DELAYNOP_NOP()  asm("NOP")
+#else
+	#define DELAYNOP_NOP()  __asm volatile("nop")
+#endif
 
 static unsigned char	nop_delay_1us 	= 8;
 static unsigned char	nop_delay_10us 	= 80;
@@ -41,36 +45,36 @@ void delaynop_config( unsigned char ticks_1us, unsigned char ticks_10us, unsigne
 void delaynop_us( unsigned short time )
 {	
 	unsigned char time_try_1 = time % 10;
-	for( unsigned char i = 0; i < nop_delay_1us * time_try_1; i++ ) asm("NOP");
+	for( unsigned char i = 0; i < nop_delay_1us * time_try_1; i++ ) DELAYNOP_NOP();
 	if( time < 10 ) return;
 		
 	unsigned char time_try_10 = time %100 / 10;
-	for( unsigned short i = 0; i < nop_delay_10us * time_try_10; i++ ) asm("NOP");
+	for( unsigned short i = 0; i < nop_delay_10us * time_try_10; i++ ) DELAYNOP_NOP();
 	if( time < 100 ) return;
 	
 	unsigned char time_try_100 = time / 100;
-	for( unsigned long i = 0; i < nop_delay_100us * time_try_100; i++ ) asm("NOP");
+	for( unsigned long i = 0; i < nop_delay_100us * time_try_100; i++ ) DELAYNOP_NOP();
 }
 //.delaynop_us()
 
 void delaynop_ms( unsigned short time )
 {
 	unsigned char time_try_1 = time % 10;
-	for( unsigned long i = 0; i < nop_delay_1ms * time_try_1; i++ ) asm("NOP");
+	for( unsigned long i = 0; i < nop_delay_1ms * time_try_1; i++ ) DELAYNOP_NOP();
 	if( time < 10 ) return;
 		
 	unsigned char time_try_10 = time %100 / 10;
-	for( unsigned long i = 0; i < nop_delay_10ms * time_try_10; i++ ) asm("NOP");
+	for( unsigned long i = 0; i < nop_delay_10ms * time_try_10; i++ ) DELAYNOP_NOP();
 	if( time < 100 ) return;
 	
 	unsigned char time_try_100 = time / 100;
-	for( unsigned long i = 0; i < nop_delay_100ms * time_try_100; i++ ) asm("NOP");
+	for( unsigned long i = 0; i < nop_delay_100ms * time_try_100; i++ ) DELAYNOP_NOP();
 }
 //.delaynop_ms()
 
 void delaynop_s( unsigned char time )
 {
 	for( unsigned char try_1s = 0; try_1s < time; try_1s++ )
-		for( unsigned long i = 0; i < nop_delay_1s; i++ ) asm("NOP");
+		for( unsigned long i = 0; i < nop_delay_1s; i++ ) DELAYNOP_NOP();
 }
 //.delaynop_s()

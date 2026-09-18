@@ -174,7 +174,12 @@ void long_to_string( long number_in, unsigned char* string_out, unsigned short *
 	
     *string_out_len = 0;
 	char less_zero_k = 1;
-	if( number_in < 0 ) less_zero_k = -1;
+	if( number_in < 0 ) 
+	{
+		string_out[ *string_out_len ] = '-';
+		string_out_len += 1;
+		less_zero_k = -1;
+	}
 	
 
 	unsigned long digit = 1000000000;
@@ -236,7 +241,12 @@ void short_to_string( short number_in, unsigned char* string_out, unsigned short
     
 	*string_out_len = 0;
 	char less_zero_k = 1;
-	if( number_in < 0 ) less_zero_k = -1;
+	if( number_in < 0 ) 
+	{
+		string_out[ *string_out_len ] = '-';
+		string_out_len += 1;
+		less_zero_k = -1;
+	}
 	
 
 	unsigned short digit = 10000;
@@ -716,7 +726,7 @@ unsigned char string_hex_to_ushort( unsigned char* string_in, unsigned short str
 {
 	unsigned short number = 0x00;
 
-	unsigned char digit_hex = 2; // 2 - 7b..4b, 1 - 3b..0b
+	unsigned char digit_hex = 4; // 2 - 7b..4b, 1 - 3b..0b
 	unsigned char i = 0;
 	while( (string_in[i]) && (i<string_in_len) && (digit_hex>0) )
 	{
